@@ -26,7 +26,7 @@ export default function App() {
       }
     }
     onFetchUpdateAsync();
-  }, []);
+  }, []);jvjksd
 
   return (
     <SafeAreaProvider>
