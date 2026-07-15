@@ -26,7 +26,7 @@ export default function App() {
       }
     }
     onFetchUpdateAsync();
-  }, []);jvjksd
+  }, []);
 
   return (
     <SafeAreaProvider>
@@ -55,7 +55,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#108529',
+    backgroundColor: '#851016',
   },
   container: {
     flex: 1,
