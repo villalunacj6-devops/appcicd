@@ -44,7 +44,7 @@ jobs:
           git checkout main
           
           # Revert the latest commit (the one that triggered this run)
-          git revert --no-edit HEAD
+          git revert --no-edit HEAD 
           
           # Push the revert back to the main branch
           git push origin main
