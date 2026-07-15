@@ -146,7 +146,7 @@ jobs:
         if: |
           steps.files_filter.outputs.native_configs == 'true' || 
           steps.build_check.outputs.force_apk_build == 'true'
-        run: eas build --profile production --platform android --non-interactive
+        run: eas build --profile production --platform android 
 
       # PATH B: Delivers lightweight Over-The-Air bundle directly matching the exact native runtime signature of the latest build
       - name: Ship Fast Over-The-Air (OTA) Production Channel Update
