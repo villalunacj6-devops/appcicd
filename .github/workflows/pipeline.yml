@@ -16,8 +16,8 @@ jobs:
         with:
           # Fetch all history so we can easily revert the commit if needed
           fetch-depth: 0
-          # Authenticating checkout with your Personal Access Token (PAT)
-          token: ${{ secrets.PAT }}
+          # Use a token with write access if pushing back to a protected branch
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Initialize Node Lifecycle Environment
         uses: actions/setup-node@v4
@@ -35,9 +35,6 @@ jobs:
       # --- UNDO CHANGES IF TESTS FAIL ON PUSH TO MAIN ---
       - name: Revert Commit on Test Failure
         if: failure() && github.event_name == 'push' && steps.run_tests.outcome == 'failure'
-        env:
-          # Injects your PAT secret as an environment variable for the git push command
-          MY_PAT: ${{ secrets.PAT }}
         run: |
           echo "TESTS FAILED: Reverting the latest commit on remote repository..."
           git config --global user.name "github-actions[bot]"
@@ -47,10 +44,10 @@ jobs:
           git checkout main
           
           # Revert the latest commit (the one that triggered this run)
-          git revert --no-edit HEAD
+          git revert --no-edit HEAD 
           
-          # Force use of the PAT in the remote URL to bypass permission denials
-          git push https://x-access-token:${MY_PAT}@github.com/${{ github.repository }}.git main
+          # Push the revert back to the main branch
+          git push origin main
 
   deploy-infrastructure:
     name: Automated App Release Router
