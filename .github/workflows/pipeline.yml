@@ -10,11 +10,6 @@ jobs:
   verify-app-syntax-and-tests:
     name: Syntax Sweep and Test Suite Verification
     runs-on: ubuntu-latest
-    
-    # Grants the job write access to the repository to allow the 'git push' on revert
-    permissions:
-      contents: write
-
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
@@ -22,7 +17,7 @@ jobs:
           # Fetch all history so we can easily revert the commit if needed
           fetch-depth: 0
           # Use a token with write access if pushing back to a protected branch
-          token: ${{ secrets.PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Initialize Node Lifecycle Environment
         uses: actions/setup-node@v4
