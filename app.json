@@ -31,7 +31,7 @@
       "url": "https://u.expo.dev/b5cb8b97-93f7-4a19-ae48-4e4b685e6353"
     },
     "android": {
-      "package": "com.yourdomain.yourapp", // <-- Add this line
+      "package": "com.yourdomain.yourapp",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
