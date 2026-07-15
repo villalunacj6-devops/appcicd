@@ -1,0 +1,121 @@
+name: React Native Smart CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  verify-app-syntax-and-tests:
+    name: Syntax Sweep and Test Suite Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Initialize Node Lifecycle Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install Pure Dependencies
+        run: npm ci
+
+      - name: Run Complete Syntax Validation and Unit Testing
+        run: npm run test
+
+  deploy-infrastructure:
+    name: Automated App Release Router
+    needs: verify-app-syntax-and-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Set up Environment Node Hook
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'npm'
+
+      - name: Reinstall Application Node Trees
+        run: npm ci
+
+      - name: Connect Environment Cloud Session
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Detect Changed Paths
+        uses: dorny/paths-filter@v3
+        id: files_filter
+        with:
+          filters: |
+            native_configs:
+              - 'app.json'
+              - 'eas.json'
+            source_code:
+              - '**/*.ts'
+              - '**/*.tsx'
+            dependencies:
+              - 'package.json'
+              - 'package-lock.json'
+
+      # Sweeps EAS for matching production app binaries to verify baseline compatibility
+      - name: Check for Existing Production Native Builds
+        id: build_check
+        run: |
+          BUILD_COUNT=$(eas build:list --platform android --profile production --json --non-interactive | jq 'length')
+          echo "Found $BUILD_COUNT existing android production builds."
+          if [ "$BUILD_COUNT" -eq 0 ]; then
+            echo "force_apk_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "force_apk_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # PATH A: Generates standalone production APK/AAB binary if native configurations change OR no builds exist yet
+      - name: Deploy Fresh Native Base Android Production Binary
+        id: deploy_native
+        if: |
+          steps.files_filter.outputs.native_configs == 'true' || 
+          steps.build_check.outputs.force_apk_build == 'true'
+        run: eas build --profile production --platform android --non-interactive
+
+      # PATH B: Delivers lightweight Over-The-Air bundle directly matching the exact native runtime signature of the latest build
+      - name: Ship Fast Over-The-Air (OTA) Production Channel Update
+        id: ship_ota
+        if: |
+          steps.build_check.outputs.force_apk_build == 'false' && 
+          steps.files_filter.outputs.native_configs == 'false' && 
+          (steps.files_filter.outputs.source_code == 'true' || steps.files_filter.outputs.dependencies == 'true')
+        run: |
+          # Dynamically extracts the fingerprint/version runtime token from app.json
+          RUNTIME_VERSION=$(npx expo config --json | jq -r '.exp.runtimeVersion.policy // .exp.runtimeVersion')
+          echo "Targeting Runtime Version Matcher: $RUNTIME_VERSION"
+          
+          # Publishes to production channel restricted strictly to the current build fingerprint structure
+          eas update --channel production --platform android --message "Automated target patch for latest APK build structure."
+
+      # =========================================================================
+      # --- POST-DEPLOYMENT STATUS HANDLERS (Pass / Fail / Rollback) ---
+      # =========================================================================
+
+      - name: Rollback EAS Update on Failure
+        if: failure() && steps.ship_ota.outcome == 'failure'
+        run: |
+          echo "OTA Update failed mid-deployment. Rolling back production channel to the last stable release..."
+          eas update --channel production --platform android --rollback --message "Automatic rollback initiated due to CI/CD pipeline failure."
+
+      - name: Pipeline Passed
+        if: success()
+        run: |
+          echo "SUCCESS: All stages cleared. The application has been successfully deployed to production."
+
+      - name: Pipeline Failed
+        if: failure()
+        run: |
+          echo "FAILURE: The pipeline encountered an issue. Review the logs above to identify the failing step."

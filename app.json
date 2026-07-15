@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "CICD-demo",
+    "slug": "CICD-DEMO",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-screen.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "b5cb8b97-93f7-4a19-ae48-4e4b685e6353"
+      }
+    },
+    "owner": "cjdevs",
+    "updates": {
+      "url": "https://u.expo.dev/b5cb8b97-93f7-4a19-ae48-4e4b685e6353"
+    },
+    "android": {}
+  }
+}
