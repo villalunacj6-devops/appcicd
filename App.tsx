@@ -25,7 +25,7 @@ export default function App() {
         console.log("Error fetching latest OTA bundle: ", error);
       }
     }
-    onFetchUpdateAsync();jvhj
+    onFetchUpdateAsync();saff
   }, []);
 
   return (

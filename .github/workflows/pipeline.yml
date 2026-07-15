@@ -14,10 +14,19 @@ jobs:
       - name: Checkout Codebase
         uses: actions/checkout@v4
         with:
-          # Fetch all history so we can easily revert the commit if needed
+          # Fetch all history so we can diff against the last successful run
           fetch-depth: 0
           # Authenticating checkout with your Personal Access Token (PAT)
           token: ${{ secrets.PAT }}
+
+      # Dynamically finds the last successful commit of this workflow on main
+      - name: Locate Last Successful Commit
+        id: last_success
+        uses: nrwl/last-successful-commit-action@v1
+        with:
+          branch: 'main'
+          workflow_id: 'pipeline.yml' # Ensure this matches your actual workflow filename in .github/workflows/
+          github_token: ${{ secrets.PAT }}
 
       - name: Initialize Node Lifecycle Environment
         uses: actions/setup-node@v4
@@ -32,24 +41,52 @@ jobs:
         id: run_tests
         run: npm run test
 
-      # --- UNDO CHANGES IF TESTS FAIL ON PUSH TO MAIN ---
-      - name: Revert Commit on Test Failure
+      # --- SELECTIVE REVERT ON TEST FAILURE (Bypasses workflow files) ---
+      - name: Revert Failed Files to Last Green State
         if: failure() && github.event_name == 'push' && steps.run_tests.outcome == 'failure'
         env:
-          # Injects your PAT secret as an environment variable for the git push command
           MY_PAT: ${{ secrets.PAT }}
+          LAST_GREEN_SHA: ${{ steps.last_success.outputs.sha }}
         run: |
-          echo "TESTS FAILED: Reverting the latest commit on remote repository..."
+          echo "TESTS FAILED: Reverting application changes to the last known green commit..."
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           
           # Force checkout the main branch explicitly
           git checkout main
-          
-          # Revert the latest commit (the one that triggered this run)
-          git revert --no-edit HEAD
-          
-          # Force use of the PAT in the remote URL to bypass permission denials
+
+          # Determine the base commit to revert back to
+          TARGET_SHA="$LAST_GREEN_SHA"
+          if [ -z "$TARGET_SHA" ]; then
+            echo "Warning: No previous successful run found. Falling back to HEAD~1 as safe baseline."
+            TARGET_SHA=$(git rev-parse HEAD~1)
+          fi
+          echo "Restoring application files back to state at: $TARGET_SHA"
+
+          # 1. Find all files that changed between the target SHA and current broken HEAD
+          CHANGED_FILES=$(git diff --name-only $TARGET_SHA HEAD)
+
+          # 2. Filter out workflow files to protect the pipeline itself and bypass Github restrictions
+          REVERT_FILES=""
+          for file in $CHANGED_FILES; do
+            if [[ "$file" != .github/* ]]; then
+              REVERT_FILES="$REVERT_FILES $file"
+            else
+              echo "Skipping system file to preserve pipeline stability: $file"
+            fi
+          done
+
+          if [ -z "$REVERT_FILES" ]; then
+            echo "No application source files changed. Nothing to revert."
+            exit 0
+          fi
+
+          # 3. Restore only the application files back to their target green state
+          echo "Reverting: $REVERT_FILES"
+          git checkout $TARGET_SHA -- $REVERT_FILES
+
+          # 4. Commit and push back to main with [skip ci] to prevent infinite run loops
+          git commit -m "chore: auto-revert broken changes to last passing state ($TARGET_SHA) [skip ci]"
           git push https://x-access-token:${MY_PAT}@github.com/${{ github.repository }}.git main
 
   deploy-infrastructure:
